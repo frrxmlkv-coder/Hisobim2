@@ -363,7 +363,7 @@ class MainActivity : Activity() {
     }
 
     private fun message(text: String) {
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()}
   private fun openCredits() {
     val credits = org.json.JSONArray(
         prefs.getString("credits", "[]")
