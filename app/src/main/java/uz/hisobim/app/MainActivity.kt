@@ -605,75 +605,133 @@ private fun openCredits() {
     )
 }
 
+
 private fun addCredit() {
+
     val form = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(20), dp(15), dp(20), dp(10))
+        setPadding(dp(20), dp(10), dp(20), dp(15))
     }
 
-    fun input(hintText: String, decimal: Boolean = false): EditText {
+    fun field(
+        hintText: String,
+        type: Int = android.text.InputType.TYPE_CLASS_TEXT
+    ): EditText {
         return EditText(this).apply {
             hint = hintText
-            inputType = if (decimal)
-                android.text.InputType.TYPE_CLASS_NUMBER or
-                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            else
-                android.text.InputType.TYPE_CLASS_TEXT
-
+            textSize = 15f
+            inputType = type
+            setSingleLine(true)
             form.addView(this)
         }
     }
 
-    val name = input("Bank yoki kreditor nomi")
-    val total = input("Kredit summasi", true)
-    val rate = input("Yillik foiz stavkasi", true)
-    val monthly = input("Oylik to‘lov", true)
-    val paid = input("To‘langan summa", true)
+    val numberType =
+        android.text.InputType.TYPE_CLASS_NUMBER or
+        android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
 
-    AlertDialog.Builder(this)
-        .setTitle("Yangi kredit")
-        .setView(form)
+    val bank = field("Bank yoki kreditor nomi")
+    val creditType = field("Kredit turi: iste'mol, avto, ipoteka")
+    val amount = field("Kredit summasi (so'm)", numberType)
+    val rate = field("Yillik foiz stavkasi (%)", numberType)
+    val months = field("Kredit muddati (oy)", 
+        android.text.InputType.TYPE_CLASS_NUMBER)
+    val monthly = field("Oylik to'lov (so'm)", numberType)
+    val startDate = field("Boshlanish sanasi (YYYY-MM-DD)")
+    val paymentDay = field("Har oyning to'lov kuni (1-31)",
+        android.text.InputType.TYPE_CLASS_NUMBER)
+    val paid = field("Hozirgacha to'langan summa", numberType)
+    val purpose = field("Kredit maqsadi")
+
+    val scroll = ScrollView(this).apply {
+        isFillViewport = true
+        addView(form)
+    }
+
+    val dialog = AlertDialog.Builder(this)
+        .setTitle("YANGI KREDIT")
+        .setView(scroll)
         .setNegativeButton("BEKOR QILISH", null)
-        .setPositiveButton("SAQLASH") { _, _ ->
+        .setPositiveButton("SAQLASH", null)
+        .create()
 
-            val amount = total.text.toString().toDoubleOrNull() ?: 0.0
-            val paidAmount = paid.text.toString().toDoubleOrNull() ?: 0.0
-            val interest = rate.text.toString().toDoubleOrNull() ?: 0.0
-            val monthlyAmount = monthly.text.toString().toDoubleOrNull() ?: 0.0
+    dialog.setOnShowListener {
 
-            if (name.text.isBlank() ||
-                amount <= 0 ||
-                paidAmount < 0 ||
-                paidAmount > amount ||
-                interest < 0 ||
-                monthlyAmount < 0
-            ) {
-                message("Ma’lumotlarni to‘g‘ri kiriting")
-                return@setPositiveButton
+        dialog.window?.setSoftInputMode(
+            android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        )
+
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92).toInt(),
+            (resources.displayMetrics.heightPixels * 0.78).toInt()
+        )
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            .setOnClickListener {
+
+                val total = amount.text.toString()
+                    .toDoubleOrNull() ?: 0.0
+
+                val interest = rate.text.toString()
+                    .toDoubleOrNull() ?: 0.0
+
+                val term = months.text.toString()
+                    .toIntOrNull() ?: 0
+
+                val monthlyAmount = monthly.text.toString()
+                    .toDoubleOrNull() ?: 0.0
+
+                val paidAmount = paid.text.toString()
+                    .toDoubleOrNull() ?: 0.0
+
+                val day = paymentDay.text.toString()
+                    .toIntOrNull() ?: 0
+
+                if (bank.text.isBlank() ||
+                    total <= 0 ||
+                    interest < 0 ||
+                    term <= 0 ||
+                    monthlyAmount <= 0 ||
+                    paidAmount < 0 ||
+                    paidAmount > total ||
+                    day !in 1..31 ||
+                    startDate.text.isBlank()
+                ) {
+                    message("Ma'lumotlarni to'g'ri to'ldiring")
+                    return@setOnClickListener
+                }
+
+                val credits = org.json.JSONArray(
+                    prefs.getString("credits", "[]")
+                )
+
+                val item = org.json.JSONObject().apply {
+                    put("name", bank.text.toString())
+                    put("type", creditType.text.toString())
+                    put("total", total)
+                    put("rate", interest.toString())
+                    put("months", term)
+                    put("monthly", monthlyAmount)
+                    put("startDate", startDate.text.toString())
+                    put("paymentDay", day)
+                    put("paid", paidAmount)
+                    put("purpose", purpose.text.toString())
+                }
+
+                credits.put(item)
+
+                prefs.edit()
+                    .putString("credits", credits.toString())
+                    .apply()
+
+                dialog.dismiss()
+
+                message("Yangi kredit muvaffaqiyatli saqlandi!")
+                openCredits()
             }
+    }
 
-            val credits = org.json.JSONArray(
-                prefs.getString("credits", "[]")
-            )
-
-            val item = org.json.JSONObject().apply {
-                put("name", name.text.toString())
-                put("total", amount)
-                put("rate", interest.toString())
-                put("monthly", monthlyAmount)
-                put("paid", paidAmount)
-            }
-
-            credits.put(item)
-
-            prefs.edit()
-                .putString("credits", credits.toString())
-                .apply()
-
-            message("Kredit saqlandi!")
-            openCredits()
-        }
-        .show()
+    dialog.show()
 }
 
 private fun addCreditPayment(index: Int) {
@@ -706,8 +764,8 @@ private fun addCreditPayment(index: Int) {
         .setView(field)
         .setNegativeButton("BEKOR QILISH", null)
         .setPositiveButton("TO‘LASH") { _, _ ->
-
-            val amount = field.text.toString().toDoubleOrNull() ?: 0.0
+            val amount = field.text.toString()
+                .toDoubleOrNull() ?: 0.0
 
             if (amount <= 0 || amount > remaining) {
                 message("To‘lov summasini tekshiring")
@@ -725,4 +783,5 @@ private fun addCreditPayment(index: Int) {
         }
         .show()
 }
+
  }
