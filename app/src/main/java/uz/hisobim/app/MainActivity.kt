@@ -364,5 +364,106 @@ class MainActivity : Activity() {
 
     private fun message(text: String) {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+  private fun openCredits() {
+    val credits = org.json.JSONArray(
+        prefs.getString("credits", "[]")
+    )
+
+    val summary = StringBuilder()
+
+    for (i in 0 until credits.length()) {
+        val item = credits.getJSONObject(i)
+        val name = item.getString("name")
+        val total = item.getLong("total")
+        val paid = item.getLong("paid")
+
+        summary.append(
+            "$name\nKredit: $total so‘m\n" +
+            "To‘langan: $paid so‘m\n" +
+            "Qoldiq: ${total - paid} so‘m\n\n"
+        )
     }
+
+    AlertDialog.Builder(this)
+        .setTitle("Kreditlarim")
+        .setMessage(
+            if (credits.length() == 0)
+                "Hozircha kredit mavjud emas."
+            else summary.toString()
+        )
+        .setPositiveButton("Kredit qo‘shish") { _, _ ->
+            addCredit()
+        }
+        .setNegativeButton("Yopish", null)
+        .show()
+}
+
+private fun addCredit() {
+    val form = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(20), dp(10), dp(20), dp(10))
+    }
+
+    fun field(hintText: String): EditText {
+        return EditText(this).apply {
+            hint = hintText
+            inputType = InputType.TYPE_CLASS_TEXT
+            form.addView(this)
+        }
+    }
+
+    val name = field("Bank yoki kreditor nomi")
+    val total = field("Kredit summasi")
+    total.inputType = InputType.TYPE_CLASS_NUMBER
+
+    val rate = field("Yillik foiz stavkasi (%)")
+    rate.inputType = InputType.TYPE_CLASS_NUMBER or
+        InputType.TYPE_NUMBER_FLAG_DECIMAL
+
+    val monthly = field("Oylik to‘lov")
+    monthly.inputType = InputType.TYPE_CLASS_NUMBER
+
+    val paid = field("To‘langan summa")
+    paid.inputType = InputType.TYPE_CLASS_NUMBER
+
+    AlertDialog.Builder(this)
+        .setTitle("Yangi kredit")
+        .setView(form)
+        .setPositiveButton("Saqlash") { _, _ ->
+            val amount = total.text.toString().toLongOrNull() ?: 0L
+            val paidAmount = paid.text.toString().toLongOrNull() ?: 0L
+
+            if (name.text.isBlank() ||
+                amount <= 0 ||
+                paidAmount < 0 ||
+                paidAmount > amount
+            ) {
+                message("Ma’lumotlarni to‘g‘ri kiriting")
+                return@setPositiveButton
+            }
+
+            val credits = org.json.JSONArray(
+                prefs.getString("credits", "[]")
+            )
+
+            val item = org.json.JSONObject().apply {
+                put("name", name.text.toString())
+                put("total", amount)
+                put("rate", rate.text.toString())
+                put("monthly", monthly.text.toString())
+                put("paid", paidAmount)
+            }
+
+            credits.put(item)
+
+            prefs.edit()
+                .putString("credits", credits.toString())
+                .apply()
+
+            message("Kredit saqlandi!")
+            openCredits()
+        }
+        .setNegativeButton("Bekor qilish", null)
+        .show()
+}  }
 }
