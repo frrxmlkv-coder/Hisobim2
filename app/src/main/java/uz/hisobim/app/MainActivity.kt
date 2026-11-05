@@ -466,4 +466,3 @@ private fun addCredit() {
         .setNegativeButton("Bekor qilish", null)
         .show()
 }  }
-}
