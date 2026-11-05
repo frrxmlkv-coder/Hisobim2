@@ -146,7 +146,7 @@ class MainActivity : Activity() {
         }, weightParams())
 
         row1.addView(tile("K", "Kreditlar", purple) {
-            message("Kreditlar bo‘limi")
+            openCredits()
         }, weightParams())
 
         val row2 = LinearLayout(this)
