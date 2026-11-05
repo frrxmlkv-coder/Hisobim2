@@ -364,79 +364,289 @@ class MainActivity : Activity() {
 
     private fun message(text: String) {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show()}
-  private fun openCredits() {
+
+private fun openCredits() {
     val credits = org.json.JSONArray(
         prefs.getString("credits", "[]")
     )
 
-    val summary = StringBuilder()
+    val scroll = ScrollView(this)
+
+    val root = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(18), dp(18), dp(18), dp(18))
+        setBackgroundColor(Color.rgb(247, 246, 252))
+    }
+
+    val purple = Color.rgb(100, 20, 210)
+    val green = Color.rgb(20, 165, 100)
+    val red = Color.rgb(220, 55, 75)
+
+    fun makeText(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false
+    ): TextView {
+        return TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(color)
+            if (bold) setTypeface(null, Typeface.BOLD)
+            setPadding(dp(4), dp(5), dp(4), dp(5))
+        }
+    }
+
+    fun makeCard(): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(13), dp(15), dp(13))
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = dp(20).toFloat()
+            }
+            elevation = dp(3).toFloat()
+        }
+    }
+
+    fun makeButton(
+        title: String,
+        color: Int,
+        action: () -> Unit
+    ): TextView {
+        return TextView(this).apply {
+            text = title
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(10), dp(13), dp(10), dp(13))
+            background = GradientDrawable().apply {
+                setColor(color)
+                cornerRadius = dp(12).toFloat()
+            }
+            setOnClickListener { action() }
+        }
+    }
+
+    var total = 0.0
+    var paid = 0.0
+    var monthly = 0.0
 
     for (i in 0 until credits.length()) {
         val item = credits.getJSONObject(i)
-        val name = item.getString("name")
-        val total = item.getLong("total")
-        val paid = item.getLong("paid")
-
-        summary.append(
-            "$name\nKredit: $total so‘m\n" +
-            "To‘langan: $paid so‘m\n" +
-            "Qoldiq: ${total - paid} so‘m\n\n"
-        )
+        total += item.optDouble("total")
+        paid += item.optDouble("paid")
+        monthly += item.optDouble("monthly")
     }
 
-    AlertDialog.Builder(this)
-        .setTitle("Kreditlarim")
-        .setMessage(
-            if (credits.length() == 0)
-                "Hozircha kredit mavjud emas."
-            else summary.toString()
-        )
-        .setPositiveButton("Kredit qo‘shish") { _, _ ->
-            addCredit()
+    val remaining = (total - paid).coerceAtLeast(0.0)
+
+    root.addView(makeText("KREDITLARIM", 25f, purple, true))
+    root.addView(makeText("Shaxsiy kredit boshqaruvi", 14f, Color.GRAY))
+
+    val summary = makeCard()
+    summary.setBackgroundColor(purple)
+
+    summary.addView(makeText("UMUMIY QARZ QOLDIG‘I", 14f, Color.WHITE, true))
+    summary.addView(makeText(
+        "%,.0f so‘m".format(remaining),
+        27f, Color.WHITE, true
+    ))
+    summary.addView(makeText(
+        "Jami kredit: %,.0f so‘m".format(total),
+        14f, Color.WHITE
+    ))
+    summary.addView(makeText(
+        "To‘langan: %,.0f so‘m".format(paid),
+        14f, Color.WHITE
+    ))
+
+    root.addView(summary)
+
+    val stats = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, dp(12), 0, dp(12))
+    }
+
+    val c1 = makeCard()
+    c1.addView(makeText("OYLIK TO‘LOV", 12f, Color.GRAY, true))
+    c1.addView(makeText(
+        "%,.0f so‘m".format(monthly), 17f, purple, true
+    ))
+
+    val c2 = makeCard()
+    c2.addView(makeText("KREDITLAR", 12f, Color.GRAY, true))
+    c2.addView(makeText("${credits.length()} ta", 17f, purple, true))
+
+    stats.addView(c1, LinearLayout.LayoutParams(0, -2, 1f))
+    stats.addView(c2, LinearLayout.LayoutParams(0, -2, 1f)
+        .apply { leftMargin = dp(8) })
+
+    root.addView(stats)
+    root.addView(makeText("Mening kreditlarim", 20f, Color.BLACK, true))
+
+    if (credits.length() == 0) {
+        root.addView(makeText(
+            "Hozircha kredit mavjud emas.",
+            15f, Color.GRAY
+        ))
+    }
+
+    for (i in 0 until credits.length()) {
+        val item = credits.getJSONObject(i)
+
+        val name = item.optString("name")
+        val amount = item.optDouble("total")
+        val paidAmount = item.optDouble("paid")
+        val rate = item.optString("rate")
+        val monthlyAmount = item.optDouble("monthly")
+
+        val left = (amount - paidAmount).coerceAtLeast(0.0)
+
+        val progress = if (amount > 0)
+            ((paidAmount / amount) * 100).toInt().coerceIn(0, 100)
+        else 0
+
+        val box = makeCard()
+
+        box.addView(makeText(name, 19f, purple, true))
+        box.addView(makeText(
+            "Kredit summasi: %,.0f so‘m".format(amount),
+            14f, Color.DKGRAY
+        ))
+        box.addView(makeText(
+            "Qolgan qarz: %,.0f so‘m".format(left),
+            18f, red, true
+        ))
+        box.addView(makeText(
+            "To‘langan: %,.0f so‘m".format(paidAmount),
+            14f, green
+        ))
+        box.addView(makeText("Yillik foiz: $rate %", 14f, Color.GRAY))
+        box.addView(makeText(
+            "Oylik to‘lov: %,.0f so‘m".format(monthlyAmount),
+            14f, Color.DKGRAY
+        ))
+
+        box.addView(makeText(
+            "To‘lov bajarilishi: $progress %",
+            13f, purple, true
+        ))
+
+        val bar = ProgressBar(
+            this, null, android.R.attr.progressBarStyleHorizontal
+        ).apply {
+            max = 100
+            this.progress = progress
+            progressTintList =
+                android.content.res.ColorStateList.valueOf(green)
         }
-        .setNegativeButton("Yopish", null)
-        .show()
+
+        box.addView(bar, LinearLayout.LayoutParams(-1, dp(9)))
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        actions.addView(makeButton("TO‘LOV QO‘SHISH", green) {
+            addCreditPayment(i)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+
+        actions.addView(makeButton("O‘CHIRISH", red) {
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle("Kreditni o‘chirish")
+                .setMessage("Kreditni o‘chirmoqchimisiz?")
+                .setNegativeButton("YO‘Q", null)
+                .setPositiveButton("HA") { _, _ ->
+                    val updated = org.json.JSONArray(
+                        prefs.getString("credits", "[]")
+                    )
+                    val result = org.json.JSONArray()
+
+                    for (j in 0 until updated.length()) {
+                        if (j != i) {
+                            result.put(updated.getJSONObject(j))
+                        }
+                    }
+
+                    prefs.edit()
+                        .putString("credits", result.toString())
+                        .apply()
+
+                    openCredits()
+                }
+                .show()
+        }, LinearLayout.LayoutParams(0, -2, 1f)
+            .apply { leftMargin = dp(8) })
+
+        box.addView(actions)
+
+        root.addView(box, LinearLayout.LayoutParams(-1, -2)
+            .apply { topMargin = dp(12) })
+    }
+
+    root.addView(makeButton("+ YANGI KREDIT QO‘SHISH", purple) {
+        addCredit()
+    }, LinearLayout.LayoutParams(-1, -2)
+        .apply { topMargin = dp(18) })
+
+    scroll.addView(root)
+
+    val dialog = AlertDialog.Builder(this)
+        .setView(scroll)
+        .setNegativeButton("YOPISH", null)
+        .create()
+
+    dialog.show()
+    dialog.window?.setLayout(
+        -1,
+        (resources.displayMetrics.heightPixels * 0.88).toInt()
+    )
 }
 
 private fun addCredit() {
     val form = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(20), dp(10), dp(20), dp(10))
+        setPadding(dp(20), dp(15), dp(20), dp(10))
     }
 
-    fun field(hintText: String): EditText {
+    fun input(hintText: String, decimal: Boolean = false): EditText {
         return EditText(this).apply {
             hint = hintText
-            inputType = InputType.TYPE_CLASS_TEXT
+            inputType = if (decimal)
+                android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            else
+                android.text.InputType.TYPE_CLASS_TEXT
+
             form.addView(this)
         }
     }
 
-    val name = field("Bank yoki kreditor nomi")
-    val total = field("Kredit summasi")
-    total.inputType = InputType.TYPE_CLASS_NUMBER
-
-    val rate = field("Yillik foiz stavkasi (%)")
-    rate.inputType = InputType.TYPE_CLASS_NUMBER or
-        InputType.TYPE_NUMBER_FLAG_DECIMAL
-
-    val monthly = field("Oylik to‘lov")
-    monthly.inputType = InputType.TYPE_CLASS_NUMBER
-
-    val paid = field("To‘langan summa")
-    paid.inputType = InputType.TYPE_CLASS_NUMBER
+    val name = input("Bank yoki kreditor nomi")
+    val total = input("Kredit summasi", true)
+    val rate = input("Yillik foiz stavkasi", true)
+    val monthly = input("Oylik to‘lov", true)
+    val paid = input("To‘langan summa", true)
 
     AlertDialog.Builder(this)
         .setTitle("Yangi kredit")
         .setView(form)
-        .setPositiveButton("Saqlash") { _, _ ->
-            val amount = total.text.toString().toLongOrNull() ?: 0L
-            val paidAmount = paid.text.toString().toLongOrNull() ?: 0L
+        .setNegativeButton("BEKOR QILISH", null)
+        .setPositiveButton("SAQLASH") { _, _ ->
+
+            val amount = total.text.toString().toDoubleOrNull() ?: 0.0
+            val paidAmount = paid.text.toString().toDoubleOrNull() ?: 0.0
+            val interest = rate.text.toString().toDoubleOrNull() ?: 0.0
+            val monthlyAmount = monthly.text.toString().toDoubleOrNull() ?: 0.0
 
             if (name.text.isBlank() ||
                 amount <= 0 ||
                 paidAmount < 0 ||
-                paidAmount > amount
+                paidAmount > amount ||
+                interest < 0 ||
+                monthlyAmount < 0
             ) {
                 message("Ma’lumotlarni to‘g‘ri kiriting")
                 return@setPositiveButton
@@ -449,8 +659,8 @@ private fun addCredit() {
             val item = org.json.JSONObject().apply {
                 put("name", name.text.toString())
                 put("total", amount)
-                put("rate", rate.text.toString())
-                put("monthly", monthly.text.toString())
+                put("rate", interest.toString())
+                put("monthly", monthlyAmount)
                 put("paid", paidAmount)
             }
 
@@ -463,6 +673,56 @@ private fun addCredit() {
             message("Kredit saqlandi!")
             openCredits()
         }
-        .setNegativeButton("Bekor qilish", null)
         .show()
-}  }
+}
+
+private fun addCreditPayment(index: Int) {
+    val credits = org.json.JSONArray(
+        prefs.getString("credits", "[]")
+    )
+
+    if (index !in 0 until credits.length()) return
+
+    val item = credits.getJSONObject(index)
+    val total = item.optDouble("total")
+    val paid = item.optDouble("paid")
+    val remaining = (total - paid).coerceAtLeast(0.0)
+
+    if (remaining <= 0) {
+        message("Kredit to‘liq to‘langan!")
+        return
+    }
+
+    val field = EditText(this).apply {
+        hint = "To‘lov summasi"
+        inputType =
+            android.text.InputType.TYPE_CLASS_NUMBER or
+            android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+    }
+
+    AlertDialog.Builder(this)
+        .setTitle("Kredit to‘lovi")
+        .setMessage("Qolgan qarz: %,.0f so‘m".format(remaining))
+        .setView(field)
+        .setNegativeButton("BEKOR QILISH", null)
+        .setPositiveButton("TO‘LASH") { _, _ ->
+
+            val amount = field.text.toString().toDoubleOrNull() ?: 0.0
+
+            if (amount <= 0 || amount > remaining) {
+                message("To‘lov summasini tekshiring")
+                return@setPositiveButton
+            }
+
+            item.put("paid", paid + amount)
+
+            prefs.edit()
+                .putString("credits", credits.toString())
+                .apply()
+
+            message("To‘lov saqlandi!")
+            openCredits()
+        }
+        .show()
+}
+ }
